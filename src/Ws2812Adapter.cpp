@@ -39,7 +39,7 @@ void Ws2812Adapter::show(uint16_t numPixels, Ws2812PixelFunction cb) {
     uint8_t rgb[3], buf[3];
 
     //wait for any previous latch
-    while (micros() - timer < 250) //use ws2813 timing
+    while (micros() - timer < 300) //use ws2813 timing
         yield();
 
     //pixels, sourced from callback

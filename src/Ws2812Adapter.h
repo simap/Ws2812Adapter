@@ -6,6 +6,7 @@
 #define WS2812ADAPTER_HPP
 
 #include <Arduino.h>
+#include <functional>
 
 extern "C"
 {
