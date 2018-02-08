@@ -75,10 +75,13 @@ Ws2812Adapter::Ws2812Adapter(uint8_t o) {
     setColorOrder(o);
 }
 
-void Ws2812Adapter::begin() {
-//    Serial1.begin(3200000, SERIAL_6N1, SERIAL_TX_ONLY);
-    Serial1.begin(2500000, SERIAL_8N1, SERIAL_TX_ONLY);
+void Ws2812Adapter::setUartFrequency(uint32_t uartFrequency) {
+    Serial1.begin(uartFrequency, SERIAL_8N1, SERIAL_TX_ONLY);
 
     SET_PERI_REG_MASK(UART_CONF0(UART1), BIT22);
+}
+
+void Ws2812Adapter::begin(uint32_t uartFrequency) {
+    setUartFrequency(uartFrequency);
     timer = micros();
 }

@@ -43,9 +43,11 @@ public:
 
     ~Ws2812Adapter();
 
-    void begin();
+    void begin(uint32_t uartFrequency = 2500000L);
 
     void end();
+
+    void setUartFrequency(uint32_t uartFrequency);
 
     void setColorOrder(uint8_t o);
 
