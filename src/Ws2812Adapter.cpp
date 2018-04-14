@@ -21,16 +21,21 @@ void Ws2812Adapter::writeRgb(uint8_t *rgb) {
 //        Serial1.write(bits[c & 0x03]);
 //    }
 
+    //wait for 24 bytes free in the uart tx fifo
+    while((USS(UART1) >> USTXC) >= 104);
+
+    os_intr_lock();
     for (uint8_t i = 0; i < 3; i++) {
         uint8_t m = 0x80;
         for (uint8_t b = 0; b < 8; b++) {
             int tmp = (rgb[i] & m) ? 0b11111110 : 0b11111111;
 //            if (tmp != 0b11111111)
 //                Serial.println(rgb[i]);
-            Serial1.write(tmp);
+            Serial1.write(tmp);q
             m >>= 1;
         }
     }
+    os_intr_unlock();
 }
 
 void Ws2812Adapter::show(uint16_t numPixels, Ws2812PixelFunction cb) {
