@@ -31,7 +31,7 @@ void Ws2812Adapter::writeRgb(uint8_t *rgb) {
             int tmp = (rgb[i] & m) ? 0b11111110 : 0b11111111;
 //            if (tmp != 0b11111111)
 //                Serial.println(rgb[i]);
-            Serial1.write(tmp);q
+            Serial1.write(tmp);
             m >>= 1;
         }
     }
