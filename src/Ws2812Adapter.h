@@ -7,6 +7,7 @@
 
 #include <Arduino.h>
 #include <functional>
+#include <memory>
 
 extern "C"
 {
@@ -53,7 +54,11 @@ public:
 
     void show(uint16_t numPixels, Ws2812PixelFunction cb);
 
+    void setUseBuffer(bool newUseBuffer);
+
 private:
+    bool setBuffer(size_t size);
+    void clearBuffer();
 
     void writeRgb(uint8_t rgb[]);
     unsigned long timer;
@@ -61,6 +66,9 @@ private:
             rOffset,                                // Index of red in 3-byte pixel
             gOffset,                                // Index of green byte
             bOffset;                                // Index of blue byte
+    bool useBuffer;
+    std::unique_ptr<uint8_t[]> buffer;
+    size_t bufferSize;
 };
 
 
