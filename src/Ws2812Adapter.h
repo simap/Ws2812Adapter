@@ -51,6 +51,7 @@ public:
     void setUartFrequency(uint32_t uartFrequency);
 
     void setColorOrder(uint8_t o);
+    void setColorOrder(uint8_t o, bool hasWhite);
 
     void show(uint16_t numPixels, Ws2812PixelFunction cb);
 
@@ -67,6 +68,8 @@ private:
             gOffset,                                // Index of green byte
             bOffset;                                // Index of blue byte
     bool useBuffer;
+    bool hasWhite;
+    uint8_t bpp = 3;
     std::unique_ptr<uint8_t[]> buffer;
     size_t bufferSize;
 };
