@@ -5,15 +5,8 @@
 #ifndef WS2812ADAPTER_HPP
 #define WS2812ADAPTER_HPP
 
-#include <Arduino.h>
 #include <functional>
 #include <memory>
-
-extern "C"
-{
-#include "eagle_soc.h"
-#include "uart_register.h"
-}
 
 //borrowed from Adafruit
 // Color-order flag for LED pixels (optional extra parameter to constructor):
@@ -27,15 +20,6 @@ extern "C"
 
 typedef std::function<void(uint16_t index, uint8_t rgb[])> Ws2812PixelFunction;
 
-
-
-//2.5m 8n1
-//const uint8_t bits[4] = {
-//  0b11011111,
-//  0b00011111,
-//  0b11011100,
-//  0b00011100,
-//};
 
 
 class Ws2812Adapter {
