@@ -7,6 +7,9 @@
 
 #include <functional>
 #include <memory>
+#include <FreeRTOS.h>
+#include "freertos/semphr.h"
+#include "soc/rmt_struct.h"
 
 //borrowed from Adafruit
 // Color-order flag for LED pixels (optional extra parameter to constructor):
@@ -41,7 +44,13 @@ public:
 
     void setUseBuffer(bool newUseBuffer);
 
+
+    void copyToRmtBlock_half();
+    xSemaphoreHandle drawSem;
 private:
+
+
+
     bool setBuffer(size_t size);
     void clearBuffer();
 
@@ -56,6 +65,12 @@ private:
     uint8_t bpp = 3;
     std::unique_ptr<uint8_t[]> buffer;
     size_t bufferSize;
+
+    //rmt stuff
+
+    uint16_t buf_pos, buf_len;
+    bool buf_half, buf_isDirty;
+    rmt_item32_t lowPulse, highPulse;
 };
 
 
