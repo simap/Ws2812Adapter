@@ -119,11 +119,12 @@ void Ws2812Adapter::show(uint16_t numPixels, Ws2812PixelFunction cb) {
     setBuffer(numPixels * bpp);
     for (curPixel = 0; curPixel < numPixels; curPixel++) {
         cb(curPixel, rgb);
-        buffer[curPixel * bpp] = rgb[0];
-        buffer[curPixel * bpp + 1] = rgb[1];
-        buffer[curPixel * bpp + 2] = rgb[2];
+        int pixelOffset = curPixel * bpp;
+        buffer[pixelOffset + rOffset] = rgb[0];
+        buffer[pixelOffset + gOffset] = rgb[1];
+        buffer[pixelOffset + bOffset] = rgb[2];
         if (bpp == 4)
-            buffer[curPixel * bpp + 3] = rgb[3];
+            buffer[pixelOffset + 3] = rgb[3];
     }
 
     //wait for any previous latch
@@ -261,11 +262,6 @@ bool Ws2812Adapter::setBuffer(size_t size) {
 void Ws2812Adapter::clearBuffer() {
     setBuffer(0);
 }
-
-void Ws2812Adapter::setUseBuffer(bool newUseBuffer) {
-
-}
-
 
 IRAM_ATTR void Ws2812Adapter::copyToRmtBlock_half() {
     // This fills half an RMT block
