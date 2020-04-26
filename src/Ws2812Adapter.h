@@ -5,15 +5,14 @@
 #ifndef WS2812ADAPTER_HPP
 #define WS2812ADAPTER_HPP
 
-#include <Arduino.h>
+#include <cstdint>
 #include <functional>
 #include <memory>
-
-extern "C"
-{
-#include "eagle_soc.h"
-#include "uart_register.h"
-}
+#ifdef ESP32
+#include <FreeRTOS.h>
+#include "freertos/semphr.h"
+#include "soc/rmt_struct.h"
+#endif
 
 //borrowed from Adafruit
 // Color-order flag for LED pixels (optional extra parameter to constructor):
@@ -29,35 +28,29 @@ typedef std::function<void(uint16_t index, uint8_t rgb[])> Ws2812PixelFunction;
 
 
 
-//2.5m 8n1
-//const uint8_t bits[4] = {
-//  0b11011111,
-//  0b00011111,
-//  0b11011100,
-//  0b00011100,
-//};
-
-
 class Ws2812Adapter {
 public:
     Ws2812Adapter(uint8_t o = WS2812_BGR);
 
     ~Ws2812Adapter();
 
-    void begin(uint32_t uartFrequency = 2500000L);
+    void begin();
 
     void end();
-
-    void setUartFrequency(uint32_t uartFrequency);
 
     void setColorOrder(uint8_t o);
     void setColorOrder(uint8_t o, bool hasWhite);
 
     void show(uint16_t numPixels, Ws2812PixelFunction cb);
 
-    void setUseBuffer(bool newUseBuffer);
 
+#ifdef ESP32
+    void copyToRmtBlock_half();
+    xSemaphoreHandle drawSem;
+#endif
 private:
+
+
     bool setBuffer(size_t size);
     void clearBuffer();
 
@@ -72,6 +65,13 @@ private:
     uint8_t bpp = 3;
     std::unique_ptr<uint8_t[]> buffer;
     size_t bufferSize;
+
+#ifdef ESP32
+    //rmt stuff
+    uint16_t buf_pos, buf_len;
+    bool buf_half, buf_isDirty;
+    rmt_item32_t lowPulse, highPulse;
+#endif
 };
 
 
