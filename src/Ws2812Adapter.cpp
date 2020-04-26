@@ -36,7 +36,24 @@
 #include <cstdint>
 #include <cstdlib>
 
+#ifdef ESP8266
+#include <Arduino.h>
 
+extern "C"
+{
+#include "eagle_soc.h"
+#include "uart_register.h"
+}
+
+static const uint8_t bits[4] = {
+        0b11101111,
+        0b11001111,
+        0b11101110,
+        0b11001110,
+};
+#endif
+
+#ifdef ESP32
 #if defined(ARDUINO)
 
 #include <Arduino.h>
@@ -133,7 +150,7 @@ static IRAM_ATTR void handleRmtInterrupt(void *arg) {
         }
     }
 }
-
+#endif
 
 void Ws2812Adapter::writeRgb(uint8_t *rgb) {
 }
@@ -144,8 +161,8 @@ void Ws2812Adapter::show(uint16_t numPixels, Ws2812PixelFunction cb) {
 
     memset(rgb, 0, bpp);
 
-//    if (numPixels > 2500)
-//        numPixels = 2500;
+    if (numPixels > 2500)
+        numPixels = 2500;
     setBuffer(numPixels * bpp);
     for (curPixel = 0; curPixel < numPixels; curPixel++) {
         cb(curPixel, rgb);
@@ -157,11 +174,41 @@ void Ws2812Adapter::show(uint16_t numPixels, Ws2812PixelFunction cb) {
             buffer[pixelOffset + 3] = rgb[3];
     }
 
-    //wait for any previous latch
-    //TODO can use the rmt peripheral to send reset/latch, just wait for total draw to finish
-//    while (micros() - timer < 300) //use ws2813 timing
-//        yield();
 
+#ifdef ESP8266
+    //wait for any previous latch
+    while (micros() - timer < 300) //use ws2813 timing
+        yield();
+    for (curPixel = 0; curPixel < numPixels; curPixel++) {
+        //swap around rgb values based on mapping
+        int pixelOffset = curPixel * bpp;
+        buf[rOffset] = buffer[pixelOffset];
+        buf[gOffset] = buffer[pixelOffset + 1];
+        buf[bOffset] = buffer[pixelOffset + 2];
+        if (bpp == 4)
+            buf[3] = buffer[pixelOffset + 3];
+        //wait for 12-16 bytes (bpp * 4) free in the uart tx fifo before locking interrupts
+        while((USS(UART1) >> USTXC) >= 128 - (bpp << 2)) {
+            //busy loop, or should we yield?
+        }
+        os_intr_lock();
+        for (uint8_t i = 0; i < bpp; i++) {
+            uint8_t c = buf[i];
+            Serial1.write(bits[c >> 6]);
+            Serial1.write(bits[(c >> 4) & 0x03]);
+            Serial1.write(bits[(c >> 2) & 0x03]);
+            Serial1.write(bits[c & 0x03]);
+        }
+        os_intr_unlock();
+        return;
+    }
+
+    //wait for the last bits to send before starting latch timer
+    Serial1.flush();
+    timer = micros();
+#endif
+#ifdef ESP32
+    //ESP32 can use the rmt peripheral to send reset/latch, just wait for total draw to finish
 //    Serial.print("Waiting for lock ");
     // block until current draw is complete
     if (!drawSem || !xSemaphoreTake(drawSem, portMAX_DELAY))
@@ -183,6 +230,7 @@ void Ws2812Adapter::show(uint16_t numPixels, Ws2812PixelFunction cb) {
     RMT.conf_ch[rmtChannel].conf1.tx_start = 1;
 
     //rest handled in interrupt
+#endif
 
 }
 
@@ -199,10 +247,15 @@ void Ws2812Adapter::setColorOrder(uint8_t o, bool hasWhite) {
 
 
 void Ws2812Adapter::end() {
+#ifdef ESP32
     //wait for any draw operation to finish
     if (!drawSem || !xSemaphoreTake(drawSem, portMAX_DELAY))
         return;
     xSemaphoreGive(drawSem);
+#endif
+#ifdef ESP8266
+    Serial1.end();
+#endif
 }
 
 Ws2812Adapter::~Ws2812Adapter() {
@@ -211,6 +264,7 @@ Ws2812Adapter::~Ws2812Adapter() {
 
 Ws2812Adapter::Ws2812Adapter(uint8_t o) {
     setColorOrder(o);
+#ifdef ESP32
     drawSem = xSemaphoreCreateBinary();
     xSemaphoreGive(drawSem);
 
@@ -223,18 +277,19 @@ Ws2812Adapter::Ws2812Adapter(uint8_t o) {
     highPulse.duration0 = (uint16_t) NS_TO_CYCLES(T1H);
     highPulse.level1 = 0;
     highPulse.duration1 = (uint16_t) NS_TO_CYCLES (T1L);
-
+#endif
 }
 
+void Ws2812Adapter::begin() {
 
-void Ws2812Adapter::setUartFrequency(uint32_t uartFrequency) {
+#ifdef ESP8266
+    Serial1.begin(3500000, SERIAL_8N1, SERIAL_TX_ONLY);
+    SET_PERI_REG_MASK(UART_CONF0(UART1), BIT22);
+#endif
 
-}
-
-void Ws2812Adapter::begin(uint32_t uartFrequency) {
     timer = micros();
 
-
+#ifdef ESP32
     //could maybe hold RMT in reset, or disable clock to set up for parallel output?
 
     DPORT_SET_PERI_REG_MASK(DPORT_PERIP_CLK_EN_REG, DPORT_RMT_CLK_EN);
@@ -266,17 +321,20 @@ void Ws2812Adapter::begin(uint32_t uartFrequency) {
     RMT.int_ena.val |= tx_end_offsets[rmtChannel];  // RMT.int_ena.ch<n>_tx_end = 1;
 
     esp_intr_alloc(ETS_RMT_INTR_SOURCE, 0, handleRmtInterrupt, this, &rmt_intr_handle);
-
+#endif
 }
 
 bool Ws2812Adapter::setBuffer(size_t size) {
     if (bufferSize == size) {
         return true;
     }
+
+#ifdef ESP32
     // block until current draw is complete if we need to resize
     if (!drawSem || !xSemaphoreTake(drawSem, portMAX_DELAY))
         return false;
     xSemaphoreGive(drawSem);
+#endif
 
     bufferSize = 0;
     buffer.reset(nullptr);
@@ -293,6 +351,7 @@ void Ws2812Adapter::clearBuffer() {
     setBuffer(0);
 }
 
+#ifdef ESP32
 IRAM_ATTR void Ws2812Adapter::copyToRmtBlock_half() {
     // This fills half an RMT block
     // When wraparound is happening, we want to keep the inactive half of the RMT block filled
@@ -372,6 +431,4 @@ IRAM_ATTR void Ws2812Adapter::copyToRmtBlock_half() {
 
     return;
 }
-
-
-
+#endif
