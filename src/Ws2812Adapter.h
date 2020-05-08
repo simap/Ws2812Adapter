@@ -8,11 +8,6 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
-#ifdef ESP32
-#include <FreeRTOS.h>
-#include "freertos/semphr.h"
-#include "soc/rmt_struct.h"
-#endif
 
 //borrowed from Adafruit
 // Color-order flag for LED pixels (optional extra parameter to constructor):
@@ -43,18 +38,12 @@ public:
 
     void show(uint16_t numPixels, Ws2812PixelFunction cb);
 
-
-#ifdef ESP32
-    void copyToRmtBlock_half();
-    xSemaphoreHandle drawSem;
-#endif
 private:
 
 
     bool setBuffer(size_t size);
     void clearBuffer();
 
-    void writeRgb(uint8_t rgb[]);
     unsigned long timer;
     uint8_t
             rOffset,                                // Index of red in 3-byte pixel
@@ -66,12 +55,6 @@ private:
     std::unique_ptr<uint8_t[]> buffer;
     size_t bufferSize;
 
-#ifdef ESP32
-    //rmt stuff
-    uint16_t buf_pos, buf_len;
-    bool buf_half, buf_isDirty;
-    rmt_item32_t lowPulse, highPulse;
-#endif
 };
 
 
