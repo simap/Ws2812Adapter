@@ -9,3 +9,11 @@ This uses less memory and can theoretically drive a very long chain of LEDs.
 
 A buffered option is also supported.
 
+
+ESP32
+==========
+
+NOTE: this does not use the rmt peripheral. It seems that between the interrupt necessary to fill the buffer and things like async web server (even pinned to another core), buffer underflows are happening and causing glitches.
+With async pinned to core0 and this running in core1, no glitches happen.
+
+
