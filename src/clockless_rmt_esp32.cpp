@@ -5,6 +5,7 @@
 #include "fastled_compat.h"
 
 #define FASTLED_ESP32_FLASH_LOCK 1
+#define FASTLED_ESP32_SHOWTIMING 0
 
 // -- Forward reference
 class ESP32RMTController;
@@ -77,9 +78,16 @@ ESP32RMTController::ESP32RMTController(int DATA_PIN, int T1, int T2, int T3)
 // -- Getters and setters for use in ClocklessController
 uint8_t * ESP32RMTController::getPixelData(int size_in_bytes)
 {
-    if (mPixelData == 0) {
+    if (mPixelData == 0 || mSize != size_in_bytes) {
         mSize = size_in_bytes;
-        mPixelData = (uint8_t *) calloc( mSize, sizeof(uint8_t));
+        if (mPixelData) {
+            mPixelData = (uint8_t *) realloc(mPixelData, mSize);
+            if (mPixelData) {
+                memset(mPixelData, mSize, sizeof(uint8_t));
+            }
+        } else {
+            mPixelData = (uint8_t *) calloc( mSize, sizeof(uint8_t));
+        }
     }
     return mPixelData;
 }
@@ -177,7 +185,7 @@ void ESP32RMTController::showPixels()
         }
 
         // -- Make sure it's been at least 50us since last show
-        mWait.wait();
+//        mWait.wait();
 
         // -- Start them all
         for (int i = 0; i < channel; i++) {
@@ -210,7 +218,7 @@ void ESP32RMTController::showPixels()
             xSemaphoreGive(gTX_sem);
         } while ( ! all_done);
 
-        mWait.mark();
+//        mWait.mark();
 
         // -- Reset the counters
         gNumStarted = 0;
