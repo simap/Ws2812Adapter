@@ -9,6 +9,10 @@
 #include <functional>
 #include <memory>
 
+#ifdef ESP32
+#include "fastled_compat.h"
+#endif
+
 //borrowed from Adafruit
 // Color-order flag for LED pixels (optional extra parameter to constructor):
 // Bits 0,1 = R index (0-2), bits 2,3 = G index, bits 4,5 = B index
@@ -25,7 +29,16 @@ typedef std::function<void(uint16_t index, uint8_t rgb[])> Ws2812PixelFunction;
 
 class Ws2812Adapter {
 public:
-    Ws2812Adapter(uint8_t o = WS2812_BGR);
+#ifdef ESP32
+    ESP32RMTController mRMTController;
+    Ws2812Adapter(uint8_t o = WS2812_BGR) : mRMTController(23, C_NS(250), C_NS(625), C_NS(375)) {
+        setColorOrder(o);
+    };
+#else
+    Ws2812Adapter(uint8_t o = WS2812_BGR) {
+        setColorOrder(o);
+    };
+#endif
 
     ~Ws2812Adapter();
 
@@ -39,7 +52,6 @@ public:
     void show(uint16_t numPixels, Ws2812PixelFunction cb);
 
 private:
-
 
     bool setBuffer(size_t size);
     void clearBuffer();

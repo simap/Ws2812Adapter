@@ -25,6 +25,7 @@
 #include "Ws2812Adapter.h"
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 
 #include <Arduino.h>
 
@@ -43,6 +44,7 @@ extern "C"
 
 #endif
 
+#ifdef ESP8266
 static const uint8_t bits[4] = {
         0b11101111,
         0b11001111,
@@ -59,7 +61,7 @@ static inline void write(uint8_t c) {
     Serial1.write(c);
 #endif
 }
-
+#endif
 
 void Ws2812Adapter::show(uint16_t numPixels, Ws2812PixelFunction cb) {
     int curPixel;
@@ -87,6 +89,9 @@ void Ws2812Adapter::show(uint16_t numPixels, Ws2812PixelFunction cb) {
     //wait for any previous latch
     while (micros() - timer < 300) //use ws2813 timing
         yield();
+
+#ifdef ESP8266
+
     //stream out a pixel at a time to the uart fifo
     for (curPixel = 0; curPixel < numPixels; curPixel++) {
         int pixelOffset = curPixel * bpp;
@@ -96,18 +101,11 @@ void Ws2812Adapter::show(uint16_t numPixels, Ws2812PixelFunction cb) {
         if (bpp == 4)
             buf[3] = buffer[pixelOffset + 3];
         //wait for 12-16 bytes (bpp * 4) free in the uart tx fifo before locking interrupts
-#ifdef ESP8266
         while((USS(UART1) >> USTXC) >= uartHighWatermark) {
             //busy loop, or should we yield?
         }
         os_intr_lock();
-#endif
-#ifdef ESP32
-        while(UART1.status.txfifo_cnt >= uartHighWatermark) {
-            //busy loop, or should we yield?
-        }
-        portDISABLE_INTERRUPTS();
-#endif
+
         for (uint8_t i = 0; i < bpp; i++) {
             uint8_t c = buf[i];
             write(bits[c >> 6]);
@@ -115,16 +113,23 @@ void Ws2812Adapter::show(uint16_t numPixels, Ws2812PixelFunction cb) {
             write(bits[(c >> 2) & 0x03]);
             write(bits[c & 0x03]);
         }
-#ifdef ESP8266
+
         os_intr_unlock();
-#endif
-#ifdef ESP32
-        portENABLE_INTERRUPTS();
-#endif
+
     }
 
     //wait for the last bits to send before starting latch timer
     Serial1.flush();
+
+#endif
+
+#ifdef ESP32
+    size_t size = numPixels * bpp;
+    uint8_t * pData = mRMTController.getPixelData(size);
+    std::memcpy(pData, buffer.get(), size);
+    mRMTController.showPixels();
+#endif
+
     timer = micros();
 }
 
@@ -148,10 +153,6 @@ Ws2812Adapter::~Ws2812Adapter() {
     end();
 }
 
-Ws2812Adapter::Ws2812Adapter(uint8_t o) {
-    setColorOrder(o);
-}
-
 void Ws2812Adapter::begin() {
 
 #ifdef ESP8266
@@ -159,8 +160,8 @@ void Ws2812Adapter::begin() {
     SET_PERI_REG_MASK(UART_CONF0(UART1), BIT22);
 #endif
 #ifdef ESP32
-    Serial1.begin(3500000, SERIAL_8N1, -1, 23);
-    UART1.conf0.txd_inv = 1; //inverted
+//    Serial1.begin(3500000, SERIAL_8N1, -1, 23);
+//    UART1.conf0.txd_inv = 1; //inverted
 #endif
 
     timer = micros();
