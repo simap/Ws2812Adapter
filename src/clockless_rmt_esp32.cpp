@@ -4,7 +4,7 @@
 #define FASTLED_INTERNAL
 #include "fastled_compat.h"
 
-#define FASTLED_ESP32_FLASH_LOCK 1
+#define FASTLED_ESP32_FLASH_LOCK 0
 #define FASTLED_ESP32_SHOWTIMING 0
 
 // -- Forward reference
@@ -20,10 +20,10 @@ static ESP32RMTController * gControllers[FASTLED_RMT_MAX_CONTROLLERS];
 static ESP32RMTController * gOnChannel[FASTLED_RMT_MAX_CHANNELS];
 
 // -- Channels that need a buffer refill
-static bool gRefillChannel[FASTLED_RMT_MAX_CHANNELS];
+static volatile bool gRefillChannel[FASTLED_RMT_MAX_CHANNELS];
 
 // -- Channels that are done
-static bool gDoneChannel[FASTLED_RMT_MAX_CHANNELS];
+static volatile bool gDoneChannel[FASTLED_RMT_MAX_CHANNELS];
 
 static int gNumControllers = 0;
 static int gNumStarted = 0;
@@ -201,10 +201,10 @@ void ESP32RMTController::showPixels()
             xSemaphoreTake(gTX_sem, portMAX_DELAY);
 
             for (int i = 0; i < FASTLED_RMT_MAX_CHANNELS; i++) {
-                if (gRefillChannel[i]) {
-                    gOnChannel[i]->fillNext();
-                    gRefillChannel[i] = false;
-                }
+//                if (gRefillChannel[i]) {
+//                    gOnChannel[i]->fillNext();
+//                    gRefillChannel[i] = false;
+//                }
 
                 if (gDoneChannel[i]) {
                     doneOnChannel(rmt_channel_t(i), 0);
@@ -373,6 +373,13 @@ void IRAM_ATTR ESP32RMTController::interruptHandler(void *arg)
     }
 
     if (stuff_to_do) {
+        for (channel = 0; channel < FASTLED_RMT_MAX_CHANNELS; channel++) {
+            if (gRefillChannel[channel]) {
+                gOnChannel[channel]->fillNext();
+                gRefillChannel[channel] = false;
+            }
+        }
+
         portBASE_TYPE HPTaskAwoken = 0;
         xSemaphoreGiveFromISR(gTX_sem, &HPTaskAwoken);
         if (HPTaskAwoken == pdTRUE) portYIELD_FROM_ISR();
