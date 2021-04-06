@@ -31,7 +31,7 @@ class Ws2812Adapter {
 public:
 #ifdef ESP32
     ESP32RMTController mRMTController;
-    Ws2812Adapter(uint8_t o = WS2812_BGR) : mRMTController(23, C_NS(250), C_NS(625), C_NS(375)) {
+    Ws2812Adapter(uint8_t o = WS2812_BGR) : mRMTController(23, C_NS(250), C_NS(500), C_NS(500)) {
         setColorOrder(o);
     };
 #else
