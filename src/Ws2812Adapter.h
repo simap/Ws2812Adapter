@@ -63,7 +63,7 @@ private:
             bOffset;                                // Index of blue byte
     bool useBuffer;
     bool hasWhite;
-    uint8_t bpp = 3;
+    uint8_t elements = 3; //3 = RGB or 4 = RGBW
     std::unique_ptr<uint8_t[]> buffer;
     size_t bufferSize;
 

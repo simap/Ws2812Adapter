@@ -65,48 +65,50 @@ static inline void write(uint8_t c) {
 
 void Ws2812Adapter::show(uint16_t numPixels, Ws2812PixelFunction cb) {
     int curPixel;
-    uint8_t rgb[bpp], buf[bpp];
+    uint8_t rgb[elements], buf[elements];
 
-    memset(rgb, 0, bpp);
+    memset(rgb, 0, elements);
 
     if (numPixels > 2500)
         numPixels = 2500;
-    setBuffer(numPixels * bpp);
+
+    size_t bufferSize = numPixels * elements;
+    setBuffer(bufferSize);
     //render and buffer pixels
     for (curPixel = 0; curPixel < numPixels; curPixel++) {
         cb(curPixel, rgb);
-        int pixelOffset = curPixel * bpp;
+        int pixelOffset = curPixel * elements;
         //swap around rgb values based on mapping
         buffer[pixelOffset + rOffset] = rgb[0];
         buffer[pixelOffset + gOffset] = rgb[1];
         buffer[pixelOffset + bOffset] = rgb[2];
-        if (bpp == 4)
+        if (elements == 4)
             buffer[pixelOffset + 3] = rgb[3];
     }
 
-    //we need 12-16 bytes (bpp * 4) free in the uart tx fifo for a whole pixel
-    register int uartHighWatermark = 0x7f - (bpp << 2);
     //wait for any previous latch
     while (micros() - timer < 300) //use ws2813 timing
         yield();
 
 #ifdef ESP8266
+    //we need 12-16 bytes (elements * 4) free in the uart tx fifo for a whole pixel
+    register int uartHighWatermark = 0x7f - (elements << 2);
 
     //stream out a pixel at a time to the uart fifo
     for (curPixel = 0; curPixel < numPixels; curPixel++) {
-        int pixelOffset = curPixel * bpp;
+        int pixelOffset = curPixel * elements;
         buf[0] = buffer[pixelOffset];
         buf[1] = buffer[pixelOffset + 1];
         buf[2] = buffer[pixelOffset + 2];
-        if (bpp == 4)
+        if (elements == 4)
             buf[3] = buffer[pixelOffset + 3];
-        //wait for 12-16 bytes (bpp * 4) free in the uart tx fifo before locking interrupts
+        //wait for 12-16 bytes (elements * 4) free in the uart tx fifo before locking interrupts
         while((USS(UART1) >> USTXC) >= uartHighWatermark) {
             //busy loop, or should we yield?
         }
         os_intr_lock();
 
-        for (uint8_t i = 0; i < bpp; i++) {
+        for (uint8_t i = 0; i < elements; i++) {
             uint8_t c = buf[i];
             write(bits[c >> 6]);
             write(bits[(c >> 4) & 0x03]);
@@ -124,9 +126,12 @@ void Ws2812Adapter::show(uint16_t numPixels, Ws2812PixelFunction cb) {
 #endif
 
 #ifdef ESP32
-    size_t size = numPixels * bpp;
-    uint8_t * pData = mRMTController.getPixelData(size);
-    std::memcpy(pData, buffer.get(), size);
+
+    //TODO when showPixels is async, wait for last showPixels to finish, + 300 micros
+    uint8_t * pData = mRMTController.getPixelData(bufferSize);
+    std::memcpy(pData, buffer.get(), bufferSize);
+
+    //TODO rewrite showPixels to be async, not block, and record time of completion
     mRMTController.showPixels();
 #endif
 
@@ -141,12 +146,12 @@ void Ws2812Adapter::setColorOrder(uint8_t o) {
 
 void Ws2812Adapter::setColorOrder(uint8_t o, bool hasWhite) {
     setColorOrder(o);
-    bpp = hasWhite ? 4 : 3;
+    elements = hasWhite ? 4 : 3;
 }
 
 
 void Ws2812Adapter::end() {
-    Serial1.end();
+//    Serial1.end();
 }
 
 Ws2812Adapter::~Ws2812Adapter() {
