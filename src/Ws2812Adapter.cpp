@@ -83,7 +83,7 @@ void Ws2812Adapter::show(uint16_t numPixels, Ws2812PixelFunction cb) {
         buffer[pixelOffset + gOffset] = rgb[1];
         buffer[pixelOffset + bOffset] = rgb[2];
         if (elements == 4)
-            buffer[pixelOffset + 3] = rgb[3];
+            buffer[pixelOffset + wOffset] = rgb[3];
     }
 
     //wait for any previous latch
@@ -136,17 +136,6 @@ void Ws2812Adapter::show(uint16_t numPixels, Ws2812PixelFunction cb) {
 #endif
 
     timer = micros();
-}
-
-void Ws2812Adapter::setColorOrder(uint8_t o) {
-    rOffset = (uint8_t) ((o & 3));
-    gOffset = (uint8_t) (((o >> 2) & 3));
-    bOffset = (uint8_t) (((o >> 4) & 3));
-}
-
-void Ws2812Adapter::setColorOrder(uint8_t o, bool hasWhite) {
-    setColorOrder(o);
-    elements = hasWhite ? 4 : 3;
 }
 
 
